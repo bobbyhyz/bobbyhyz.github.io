@@ -1,8 +1,42 @@
-<html>  
+<html>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Lato">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+<style>
+body {font-family: "Lato", sans-serif}
+form { 
+margin: 0 auto; 
+width:800px;
+}
+.mySlides {display: none}
+</style>  
     <body>
-        <form action="calculator.php" method="GET">
-            <input type="text" name="expression"><br>
-            <input type="submit" value="Calculate"><br>
-        </form>
+        <div class="w3-top">
+          <div class="w3-bar w3-black w3-card-2">
+            <center><font color="white" size="4">Count them all!</font></center>
+            <a class="w3-bar-item w3-button w3-padding-large w3-hide-medium w3-hide-large w3-right" href="javascript:void(0)" onclick="myFunction()" title="Toggle Navigation Menu"><i class="fa fa-bars"></i></a>
+            
+          </div>
+        </div>
+        <div class="w3-content" style="max-width:2000px;margin-top:29px">
+            <center>
+                <img src="people1.jpg" alt="how many people" style="width:33%;height:200;"><img src="people2.jpg" alt="how many people" style="width:33%;height:200;"><img src="people3.jpg" alt="how many people" style="width:33%;height:200;">
+            </center>
+            <script src="//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+            <script src="mturk.js"></script>
+            
+            <form action="index.html" method="POST">
+                <p style="text-align:center">How many people are there in each image?</p>
+                <center>
+                    <input type="text" name="count0" required="required" pattern="^0|[1-9][0-9]*$" title="non-negative count">
+                    <input type="text" name="count1" required="required" pattern="^0|[1-9][0-9]*$" title="non-negative count">
+                    <input type="text" name="count2" required="required" pattern="^0|[1-9][0-9]*$" title="non-negative count">
+                </center>
+                <br>
+                <center><input type="submit" value="Nailed it!"></center>
+            </form>
+        </div>
     </body>
 </html>
