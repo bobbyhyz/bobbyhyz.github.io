@@ -4,6 +4,7 @@
 <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Lato">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+<head>
 <style>
 body {font-family: "Lato", sans-serif}
 form { 
@@ -11,32 +12,350 @@ margin: 0 auto;
 width:800px;
 }
 .mySlides {display: none}
+.marker {
+  border: 3px solid red;
+  border-radius: 3px;
+  width: 3px;
+  height: 3px;
+  position: absolute;
+  left: 0px;
+  top: 3px;
+}
 </style>  
-    <body>
-        <div class="w3-top">
-          <div class="w3-bar w3-black w3-card-2">
-            <center><font color="white" size="4">Count them all!</font></center>
-            <a class="w3-bar-item w3-button w3-padding-large w3-hide-medium w3-hide-large w3-right" href="javascript:void(0)" onclick="myFunction()" title="Toggle Navigation Menu"><i class="fa fa-bars"></i></a>
-            
-          </div>
-        </div>
-        <div class="w3-content" style="max-width:2300px;margin-top:26px">
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+<script src="mturk.js"></script>
+<script>
+    var numclicks = [0, 0, 0, 0, 0, 0, 0];
+    var keydowns = 0;
+
+    var addedelements = [];
+    var addedelementIndices = [];
+
+    $(document).ready(function() {
+        $("#people1").click(function(e) {
+              numclicks[0]++;
+              //$("#numberofpeople1").val(numclicks[0]);
+              document.getElementById('numberofpeople1').value = numclicks[0];
+              $("#numberofpeoplefield1").val(numclicks[0]);
+
+              var newdomelement = $("<div class='marker'></div>");
+              newdomelement.css("left", (e.pageX-3) + "px");
+              newdomelement.css("top", (e.pageY-3) + "px");
+
+              var currhistory = $("#history1").val();
+              currhistory += "|" + e.pageX + "," + e.pageY + "|";
+              $("#history1").val(currhistory);
+
+              // newdomelement.click(removeElementEvent);
+
+              $("body").append(newdomelement);
+
+              // add to history
+              addedelements.push(newdomelement);
+              addedelementIndices.push(0);
+        })
+        $("#people2").click(function(e) {
+              numclicks[1]++;
+              //$("#numberofpeople2").text(numclicks[1]);
+              document.getElementById('numberofpeople2').value = numclicks[1];
+              $("#numberofpeoplefield2").val(numclicks[1]);
+
+              var newdomelement = $("<div class='marker'></div>");
+              newdomelement.css("left", (e.pageX-3) + "px");
+              newdomelement.css("top", (e.pageY-3) + "px");
+
+              var currhistory = $("#history2").val();
+              currhistory += "|" + e.pageX + "," + e.pageY + "|";
+              $("#history2").val(currhistory);
+
+              // newdomelement.click(removeElementEvent);
+
+              $("body").append(newdomelement);
+
+              // add to history
+              addedelements.push(newdomelement);
+              addedelementIndices.push(1);
+        })
+        $("#people3").click(function(e) {
+              numclicks[2]++;
+              //$("#numberofpeople3").text(numclicks[2]);
+              document.getElementById('numberofpeople3').value = numclicks[2];
+              $("#numberofpeoplefield3").val(numclicks[2]);
+
+              var newdomelement = $("<div class='marker'></div>");
+              newdomelement.css("left", (e.pageX-3) + "px");
+              newdomelement.css("top", (e.pageY-3) + "px");
+
+              var currhistory = $("#history3").val();
+              currhistory += "|" + e.pageX + "," + e.pageY + "|";
+              $("#history3").val(currhistory);
+
+              // newdomelement.click(removeElementEvent);
+
+              $("body").append(newdomelement);
+
+              // add to history
+              addedelements.push(newdomelement);
+              addedelementIndices.push(2);
+        })
+        $("#people4").click(function(e) {
+              numclicks[3]++;
+              //$("#numberofpeople4").text(numclicks[3]);
+              document.getElementById('numberofpeople4').value = numclicks[3];
+              $("#numberofpeoplefield4").val(numclicks[3]);
+
+              var newdomelement = $("<div class='marker'></div>");
+              newdomelement.css("left", (e.pageX-3) + "px");
+              newdomelement.css("top", (e.pageY-3) + "px");
+
+              var currhistory = $("#history4").val();
+              currhistory += "|" + e.pageX + "," + e.pageY + "|";
+              $("#history4").val(currhistory);
+
+              // newdomelement.click(removeElementEvent);
+
+              $("body").append(newdomelement);
+
+              // add to history
+              addedelements.push(newdomelement);
+              addedelementIndices.push(3);
+        })
+        $("#people5").click(function(e) {
+              numclicks[4]++;
+              //$("#numberofpeople5").text(numclicks[4]);
+              document.getElementById('numberofpeople5').value = numclicks[4];
+              $("#numberofpeoplefield5").val(numclicks[4]);
+
+              var newdomelement = $("<div class='marker'></div>");
+              newdomelement.css("left", (e.pageX-3) + "px");
+              newdomelement.css("top", (e.pageY-3) + "px");
+
+              var currhistory = $("#history5").val();
+              currhistory += "|" + e.pageX + "," + e.pageY + "|";
+              $("#history5").val(currhistory);
+
+              // newdomelement.click(removeElementEvent);
+
+              $("body").append(newdomelement);
+
+              // add to history
+              addedelements.push(newdomelement);
+              addedelementIndices.push(4);
+        })
+        $("#people6").click(function(e) {
+              numclicks[5]++;
+              //$("#numberofpeople6").text(numclicks[5]);
+              document.getElementById('numberofpeople6').value = numclicks[5];
+              $("#numberofpeoplefield6").val(numclicks[5]);
+
+              var newdomelement = $("<div class='marker'></div>");
+              newdomelement.css("left", (e.pageX-3) + "px");
+              newdomelement.css("top", (e.pageY-3) + "px");
+
+              var currhistory = $("#history6").val();
+              currhistory += "|" + e.pageX + "," + e.pageY + "|";
+              $("#history6").val(currhistory);
+
+              // newdomelement.click(removeElementEvent);
+
+              $("body").append(newdomelement);
+
+              // add to history
+              addedelements.push(newdomelement);
+              addedelementIndices.push(5);
+        })
+        $("#people_alot").click(function(e) {
+              numclicks[6]++;
+              //$("#numberofpeople7").text(numclicks[6]);
+              document.getElementById('numberofpeople7').value = numclicks[6];
+              $("#numberofpeoplefield7").val(numclicks[6]);
+
+              var newdomelement = $("<div class='marker'></div>");
+              newdomelement.css("left", (e.pageX-3) + "px");
+              newdomelement.css("top", (e.pageY-3) + "px");
+
+              var currhistory = $("#history7").val();
+              currhistory += "|" + e.pageX + "," + e.pageY + "|";
+              $("#history7").val(currhistory);
+
+              newdomelement.click(removeElementEvent);
+
+              $("body").append(newdomelement);
+
+              // add to history
+              addedelements.push(newdomelement);
+              addedelementIndices.push(6);
+        })
+        $(document).keydown(function(e) {
+            keydowns++;
+            $("#numkeydowns").val(keydowns);
+
+            console.log(e);
+            if(e.key=="z" && e.ctrlKey) {
+                if (addedelements.length > 0)
+                {
+                    var elem2remove = addedelements.pop();
+                    var elemIndex = addedelementIndices.pop();
+                    $(elem2remove).remove();
+                    if (numclicks[elemIndex] > 0)
+                    {
+                        numclicks[elemIndex]--;    
+                    }
+                    if (elemIndex == 0)
+                    {
+                        //$("#numberofpeople1").text(numclicks[elemIndex]);
+                        document.getElementById('numberofpeople1').value = numclicks[0];
+                        $("#numberofpeoplefield1").val(numclicks[elemIndex]);
+                    }
+                    else if (elemIndex == 1)
+                    {
+                        //$("#numberofpeople2").text(numclicks[elemIndex]);
+                        document.getElementById('numberofpeople2').value = numclicks[1];
+                        $("#numberofpeoplefield2").val(numclicks[elemIndex]);
+                    }
+                    else if (elemIndex == 2)
+                    {
+                        //$("#numberofpeople3").text(numclicks[elemIndex]);
+                        document.getElementById('numberofpeople3').value = numclicks[2];
+                        $("#numberofpeoplefield3").val(numclicks[elemIndex]);
+                    }
+                    else if (elemIndex == 3)
+                    {
+                        //$("#numberofpeople4").text(numclicks[elemIndex]);
+                        document.getElementById('numberofpeople4').value = numclicks[3];
+                        $("#numberofpeoplefield4").val(numclicks[elemIndex]);
+                    }
+                    else if (elemIndex == 4)
+                    {
+                        //$("#numberofpeople5").text(numclicks[elemIndex]);
+                        document.getElementById('numberofpeople5').value = numclicks[4];
+                        $("#numberofpeoplefield5").val(numclicks[elemIndex]);
+                    }
+                    else if (elemIndex == 5)
+                    {
+                        //$("#numberofpeople6").text(numclicks[elemIndex]);
+                        document.getElementById('numberofpeople6').value = numclicks[5];
+                        $("#numberofpeoplefield6").val(numclicks[elemIndex]);
+                    }
+                    else if (elemIndex == 6)
+                    {
+                        //$("#numberofpeople7").text(numclicks[elemIndex]);
+                        document.getElementById('numberofpeople7').value = numclicks[6];
+                        $("#numberofpeoplefield7").val(numclicks[elemIndex]);
+                    }
+                    else
+                    {
+                        ;
+                    }
+                }
+            }
+        })
+    })
+
+    // function removeElement(elem) {
+    //     var ind = addedelements.indexOf(elem);
+    //     if (ind > -1)
+    //     {
+    //         addedelements.splice(ind, 1);
+    //     }
+    //     if (numclicks > 0)
+    //     {
+    //         numclicks--;    
+    //         $(elem).remove();
+    //     }
+    //     $("#numberofpeople").text(numclicks);
+    //     $("#numberofpeoplefield").val(numclicks);       
+    // }
+
+    // function removeElementEvent(e) {
+    //     removeElement(this);
+    // }
+</script>
+</head>
+<body>
+    <div class="w3-top">
+      <div class="w3-bar w3-black w3-card-2">
+        <center><font color="white" size="4">Count them all!</font></center>
+        <a class="w3-bar-item w3-button w3-padding-large w3-hide-medium w3-hide-large w3-right" href="javascript:void(0)" onclick="myFunction()" title="Toggle Navigation Menu"><i class="fa fa-bars"></i></a>
+        
+      </div>
+    </div>
+    <div class="w3-content" style="max-width:2300px;margin-top:26px">
+        <center><p style="text-align:center;font-size:150%">How many people are there in each image?</p></center>
+        <center><p style="text-align:center;font-size:150%">Count a person only if you can see at least half of his or her head!</p></center>
+        <center><p style="text-align:center;font-size:150%">Count real persons only (e.g. don't count persons in a mirror!)</p></center>
+        <br><br>
+        <center><p style="text-align:center;font-size:120%">To count a person, click him or her on the image.</p></center>
+        <center><p style="text-align:center;font-size:120%">To undo a click, press ctrl+z.</p></center>
+        
+        <form id="mturk_form">
             <center>
-                <img src="people1.jpg" alt="how many people" style="width:33%;height:230;"><img src="people2.jpg" alt="how many people" style="width:33%;height:230;"><img src="people3.jpg" alt="how many people" style="width:33%;height:230;">
+                <img id="people1" src="people1.jpg" alt="how many people" style="width:85%;height:auto;">
             </center>
-            <script src="//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
-            <script src="mturk.js"></script>
-            
-            <form action="index.html" method="POST">
-                <p style="text-align:center">How many people are there in each image?</p>
-                <center>
-                    <input type="text" name="count0" required="required" pattern="^0|[1-9][0-9]*$" title="non-negative count">
-                    <input type="text" name="count1" required="required" pattern="^0|[1-9][0-9]*$" title="non-negative count">
-                    <input type="text" name="count2" required="required" pattern="^0|[1-9][0-9]*$" title="non-negative count">
-                </center>
-                <br>
-                <center><button class="w3-button w3-black w3-section w3-center" type="submit">Nailed it!</button></center>
-            </form>
-        </div>
-    </body>
+            <br><br>
+            <center><p>You've selected </p><input type="text" id="numberofpeople1" name="countImage1" value="0"><p>people for this image.</p></center>
+            <input id="numclickfield1" type="hidden" name="numclicks[0]">
+            <input id="numberofpeoplefield1" type="hidden" name="numberofpeople1">
+            <input id="history1" type="hidden" name="history1">
+            <br><br>
+            <center>
+                <img id="people2" src="people2.jpg" alt="how many people" style="width:85%;height:auto;">
+            </center>
+            <br><br>
+            <center><p>You've selected </p><input type="text" id="numberofpeople2" name="countImage2" value="0"><p>people for this image.</p></center>
+            <input id="numclickfield2" type="hidden" name="numclicks[1]">
+            <input id="numberofpeoplefield2" type="hidden" name="numberofpeople2">
+            <input id="history2" type="hidden" name="history2">
+            <br><br>
+            <center>
+                <img id="people3" src="people3.jpg" alt="how many people" style="width:85%;height:auto;">
+            </center>
+            <br><br>
+            <center><p>You've selected </p><input type="text" id="numberofpeople3" name="countImage3" value="0"><p>people for this image.</p></center>
+            <input id="numclickfield3" type="hidden" name="numclicks[2]">
+            <input id="numberofpeoplefield3" type="hidden" name="numberofpeople3">
+            <input id="history3" type="hidden" name="history3">
+            <br><br>
+            <center>
+                <img id="people4" src="people4.jpg" alt="how many people" style="width:85%;height:auto;">
+            </center>
+            <br><br>
+            <center><p>You've selected </p><input type="text" id="numberofpeople4" name="countImage4" value="0"><p>people for this image.</p></center>
+            <input id="numclickfield4" type="hidden" name="numclicks[3]">
+            <input id="numberofpeoplefield4" type="hidden" name="numberofpeople4">
+            <input id="history4" type="hidden" name="history4">
+            <br><br>
+            <center>
+                <img id="people5" src="people5.png" alt="how many people" style="width:85%;height:auto;">
+            </center>
+            <br><br>
+            <center><p>You've selected </p><input type="text" id="numberofpeople5" name="countImage5" value="0"><p>people for this image.</p></center>
+            <input id="numclickfield5" type="hidden" name="numclicks[4]">
+            <input id="numberofpeoplefield5" type="hidden" name="numberofpeople5">
+            <input id="history5" type="hidden" name="history5">
+            <br><br>
+            <center>
+                <img id="people6" src="people6.png" alt="how many people" style="width:85%;height:auto;">
+            </center>
+            <br><br>
+            <center><p>You've selected </p><input type="text" id="numberofpeople6" name="countImage6" value="0"><p>people for this image.</p></center>
+            <input id="numclickfield6" type="hidden" name="numclicks[5]">
+            <input id="numberofpeoplefield6" type="hidden" name="numberofpeople6">
+            <input id="history6" type="hidden" name="history6">
+            <br><br>
+            <center>
+                <img id="people_alot" src="people_alot.jpg" alt="how many people" style="width:85%;height:auto;">
+            </center>
+            <br><br>
+            <center><p>You've selected </p><input type="text" id="numberofpeople7" name="countImage7" value="0"><p>people for this image.</p></center>
+            <input id="numclickfield7" type="hidden" name="numclicks[6]">
+            <input id="numberofpeoplefield7" type="hidden" name="numberofpeople7">
+            <input id="history7" type="hidden" name="history7">
+            <br><br>
+            <input id="numkeydowns" type="hidden" name="keydowns">
+            <center><button class="w3-button w3-black w3-section w3-center" type="submit">Nailed it!</button></center>
+        </form>
+        
+    </div>
+</body>
 </html>
