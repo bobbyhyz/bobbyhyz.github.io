@@ -1,0 +1,861 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html>
+<head>
+<title>Avoid the monsters!</title>
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
+<script src="mturk.js"></script>
+<p id="bonus">0.000</p>
+
+<form id="mturk_form">
+    <input id="bonus" type="hidden" name="bonus">
+</form>
+
+<script>
+// TODO: 1. add image.
+//       4. treats 5. refactor 6. push to git
+// 0:bean, 1:crate, 2:megabean, 3:monster, 4:player, 5:empty, 6: ghostPlayer
+var Direction = {UP: 1, DOWN: 2, LEFT: 3, RIGHT: 4, STILL: 5};
+var ActorType = {BEAN: 1, CRATE: 2, MEGABEAN: 3, MONSTER: 4, PLAYER: 5, EMPTY: 6};
+var MsgType = {PROBE: 1, SERVER: 2, CLIENT: 3};
+var pieceWidth = 60;
+var pieceHeight = 60;
+var boardWidth = 15;
+var boardHeight = 9;
+var bonus = 0.0;
+var update = false;
+var started = false;
+var myKey = "runforrestrun";
+var movementGap = 3; // the amount of pixels to move every update
+var updatePeriod = 50;
+var bufDuration = 10000; // in milliseconds
+var monsterSpawningCoolDown = 40; // in number of periods
+var increaseCounter = 0; // used by monster respawn
+var prev = 0;
+var pseudoRandomAccumulator = 0;
+var isServer = false;
+
+var initBoard =
+    [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+     [1,3,5,5,5,5,5,5,5,5,5,5,5,3,1],
+     [1,5,1,5,1,5,1,5,1,1,5,1,1,5,1],
+     [1,5,1,5,1,5,1,5,5,5,5,5,5,5,1],
+     [1,5,5,5,5,5,5,5,1,1,5,1,1,5,1],
+     [1,5,1,5,1,5,1,5,5,5,5,5,5,5,1],
+     [1,5,1,5,1,5,1,5,1,1,5,1,1,5,1],
+     [1,5,5,5,5,5,5,4,5,5,5,5,5,5,1],
+     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]];
+
+var players = [];
+var crates = [];
+var megabeans = [];
+var beans = [];
+var monsters = [];
+var ghostPlayer = null;
+
+class Actor
+{
+    constructor(cssObj, direction)
+    {
+        this.cssObj = cssObj;
+        this.direction = direction;
+    }
+}
+
+class Player extends Actor
+{
+    constructor(cssObj, direction)
+    {
+        super(cssObj, direction);
+        this.buf = false;
+        this.bufTimeStart = 0;
+        this.tmpDirection = direction;
+    }
+}
+
+class Monster extends Actor
+{
+    constructor(cssObj, direction)
+    {
+        super(cssObj, direction);
+    }
+}
+
+$(document).ready(function() {
+    document.getElementById("bonus").innerHTML = "Press \"Enter\" to start the game!";
+
+    var gameboard = $("<div id='gameboard'><div/>");
+    gameboard.width(pieceWidth * boardWidth);
+    gameboard.height(pieceHeight * boardHeight);
+    $(document.body).append(gameboard);
+    document.getElementById("gameboard").style.backgroundColor = "black";
+    document.getElementById("gameboard").style.position = "relative";
+
+    $(document).keydown(function(e) {
+        if(update && e.keyCode == 37) {
+            // left arrow clicked
+            players[0].tmpDirection = Direction.LEFT;
+        } 
+        else if(update && e.keyCode == 38) {
+            // up arrow clicked
+            players[0].tmpDirection = Direction.UP;
+        }
+        else if(update && e.keyCode == 39) {
+            // right arrow clicked
+            players[0].tmpDirection = Direction.RIGHT;
+        }
+        else if(update && e.keyCode == 40) {
+            // down arrow clicked
+            players[0].tmpDirection = Direction.DOWN;
+        }
+        else if (!update && e.keyCode == 13)
+        {
+            handleGameStart();
+        }
+    });
+
+
+    setInterval(
+    function() 
+    {
+        if (!started)
+        {
+            return;
+        }
+        else if (started && !update)
+        {
+            document.getElementById("bonus").innerHTML = "Game ends. Your bonus is: " + bonus.toFixed(3);
+            return;
+        }
+
+        var milliseconds = new Date().getTime();
+        var second = Math.floor(milliseconds / 1000.0);
+
+
+        // if (players[0].buf && milliseconds - players[0].bufTimeStart >= bufDuration)
+        // {
+        //     players[0].buf = false;
+        // }
+
+        // increaseCounter++;
+        // if (monsters.length < 1 && increaseCounter != 0 && (increaseCounter % monsterSpawningCoolDown == 0))
+        // {
+        //     spawnNewMonsterAtEmptyPlace();
+        // }
+
+        if (isServer)
+        {
+            var playerPos = extractPosition(players[0].cssObj);
+            // update positions of monsters
+            for (var i = 0; i < monsters.length; i++)
+            {
+                var monsterPos = extractPosition(monsters[i].cssObj);
+                if (update)
+                {
+                    update = moveAMonster(monsters[i], playerPos[0], playerPos[1]);
+                }
+            }
+        }
+
+        // update positions of players
+        if (!update)
+        {
+            return;
+        }
+
+        if (players[0].direction == Direction.STILL)
+        {
+            players[0].direction = players[0].tmpDirection;
+        }
+        else
+        {
+            if (playerPos[0] % pieceWidth != 0 || playerPos[1] % pieceHeight != 0)
+            {
+                var nextStepPos = moveTowardsDirection(players[0].direction, playerPos[0], playerPos[1]);
+                moveCSSObj(players[0].cssObj, nextStepPos[0], nextStepPos[1]);
+            }
+            else
+            {
+                players[0].direction = players[0].tmpDirection;
+                var nextStepPos = moveTowardsDirection(players[0].direction, playerPos[0], playerPos[1]);
+                var nextCellPos = nextCellTowardsDirection(players[0].direction, playerPos[0], playerPos[1]);
+                var futurePosActor = actorTypeAtPos(nextCellPos[0], nextCellPos[1]);
+                if (futurePosActor == ActorType.EMPTY || futurePosActor == ActorType.BEAN || futurePosActor == ActorType.MEGABEAN)
+                {
+                    moveCSSObj(players[0].cssObj, nextStepPos[0], nextStepPos[1]);
+                }
+            }
+        }
+
+        // Upload player position and download ghostPlayer position
+        if (isServer)
+        {
+            sendAndGetMsg(prepareData(MsgType.SERVER), MsgType.SERVER);
+        }
+        else
+        {
+            sendAndGetMsg(prepareData(MsgType.CLIENT), MsgType.CLIENT);   
+        }
+
+        if (update && prev != second)
+        {
+            bonus += 0.001;
+            prev = second;
+            document.getElementById("bonus").innerHTML = "Your bonus is: " + bonus.toFixed(3);
+        }
+        else if (!update)
+        {
+            document.getElementById("bonus").innerHTML = "Game ends. Your bonus is: " + bonus.toFixed(3);
+        }
+
+    }, updatePeriod);
+
+    function handleGameStart()
+    {
+        bonus = 0.0;
+        document.getElementById("bonus").innerHTML = "Your bonus is: " + bonus.toFixed(3);
+
+        if (started)
+        {
+            $(ghostPlayer.cssObj).remove();
+            ghostPlayer = null;
+            $(players[0].cssObj).remove();
+            for (var i = 0; i < crates.length; i++)
+            {
+                $(crates).remove();
+            }
+            for (var i = 0; i < monsters.length; i++)
+            {
+                $(monsters[i].cssObj).remove();
+            }
+            players = [];
+            crates = [];
+            monsters = [];
+        }
+
+        sendAndGetMsg(prepareData(MsgType.PROBE), MsgType.PROBE);
+        setTimeout(function()
+        {
+            if (monsters.length > 0)
+            {
+                initializeBoard(true);
+            }
+            else
+            {
+                initializeBoard(false);   
+            }
+            started = true;
+            update = true;
+            prev = 0;
+        }, 2000);
+    }
+
+    function prepareData(msgType)
+    {
+        var dataToPass = {};
+        if (msgType == MsgType.PROBE)
+        {
+            dataToPass["isServer"] = false;
+            dataToPass["isAlive"] = false;
+        }
+        else
+        {
+            dataToPass["isServer"] = isServer;
+            dataToPass["isAlive"] = update;
+            dataToPass["playerPosition"] = extractPosition(players[0].cssObj);
+            dataToPass["monsterPositions"] = [];
+            //dataToPass["monsterDirections"] = [];
+            if (msgType == MsgType.SERVER)
+            {
+                for (var i = 0; i < monsters.length; i++)
+                {
+                    var pos = extractPosition(monsters[i].cssObj);
+                    dataToPass["monsterPositions"].push(pos);
+                    //dataToPass["monsterDirections"].push(monsters[i].direction);
+                }
+            }
+        }
+        return dataToPass;
+    }
+
+    function sendAndGetMsg(dataToPass, msgType)
+    {
+        $.ajax({
+            url:"https://codingthecrowd.com/counter.php",
+            dataType: "jsonp",
+            data: {key: myKey, data: JSON.stringify(dataToPass)},
+        })
+        .done(function(json)
+        {
+            var tmp = json["results"];
+            if (msgType == MsgType.PROBE)
+            {
+                isServer = true;
+                for (var i = 0; i < tmp.length; i++)
+                {
+                    var jsonDatum = tmp[i]["data"];
+                    var datum = JSON.parse(jsonDatum);
+                    if (datum["isServer"] && datum["isAlive"])
+                    {
+                        var playerPos = datum["playerPosition"];
+                        spawnAnActor(4, playerPos[0], playerPos[1], pieceHeight, pieceWidth);
+                        monsterPositions = datum["monsterPositions"];
+                        //monsterDirections = datum["monsterDirections"];
+                        for (var j = 0; j < monsterPositions.length; j++)
+                        {
+                            spawnAnActor(3, monsterPositions[j][0], monsterPositions[j][1], pieceHeight, pieceWidth);
+                            //monsters[monsters.length - 1].direction = monsterDirections[j];
+                        }
+                        isServer = false;
+                        break;
+                    }
+                }
+            }
+            else // msgType == MsgType.SERVER or msgType == MsgType.CLIENT
+            {
+                // update ghostPlayer
+                var posX = 0;
+                var posY = 0;
+                var aliveCount = 0;
+                for (var i = 0; i < tmp.length; i++)
+                {
+                    var jsonDatum = tmp[i]["data"];
+                    var datum = JSON.parse(jsonDatum);
+                    if (datum["isAlive"])
+                    {
+                        posX += datum["playerPosition"][0];
+                        posY += datum["playerPosition"][1];
+                        aliveCount++;
+                    }
+                }
+
+                posX = Math.floor(posX / aliveCount);
+                posY = Math.floor(posY / aliveCount);
+                if (ghostPlayer == null)
+                {
+                    spawnAnActor(6, posX, posY, pieceHeight, pieceWidth);
+                }
+                else
+                {
+                    moveCSSObj(ghostPlayer.cssObj, posX, posY);
+                }
+
+                // update monster pos if client
+                if (msgType == MsgType.CLIENT)
+                {
+                    for (var i = 0; i < tmp.length; i++)
+                    {
+                        var jsonDatum = tmp[i]["data"];
+                        var datum = JSON.parse(jsonDatum);
+                        if (datum["isServer"])
+                        {
+                            if (!datum["isAlive"])
+                            {
+                                update = false;
+                            }
+                            else
+                            {
+                                var serverMonsters = datum["monsterPositions"];
+                                for (var j = 0; j < serverMonsters.length; j++)
+                                {
+                                    moveCSSObj(monsters[j].cssObj, serverMonsters[j][0], serverMonsters[j][1]);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        })
+        .fail(function(jqxhr, textStatus, error)
+        {
+            var err = textStatus + ", " + error;
+            console.log("Request failed: " + err);
+        })
+    }
+
+    function moveCSSObj(cssObj, posX, posY)
+    {
+        cssObj.css("left", posX + "px");
+        cssObj.css("top", posY + "px");
+    }
+
+    function collision(posX1, posY1, posX2, posY2)
+    {
+        return ((Math.abs(posX1 - posX2) < 0.7 * pieceWidth) && (Math.abs(posY1 - posY2) < 0.7 * pieceHeight));
+    }
+
+    function moveAMonster(monster, playerX, playerY)
+    {
+        var monsterPos = extractPosition(monster.cssObj);
+        if (monsterPos[0] % pieceWidth != 0 || monsterPos[1] % pieceHeight != 0)
+        {
+            if (collision(monsterPos[0], monsterPos[1], playerX, playerY))
+            {
+                if (!players[0].buf)
+                {
+                    document.getElementById("bonus").innerHTML = "Game ends. Your bonus is: " + bonus.toFixed(3);
+                    return false;
+                }
+                else
+                {
+                    bonus += 0.002;
+                    removeAMonster(monster);
+                    return true;
+                }
+            }
+            else if (ghostPlayer != null && collision(extractPosition(ghostPlayer.cssObj)[0], extractPosition(ghostPlayer.cssObj)[1], monsterPos[0], monsterPos[1]))
+            {
+                document.getElementById("bonus").innerHTML = "Game ends. Your bonus is: " + bonus.toFixed(3);
+                return false;
+            }
+            else
+            {
+                var newPos = moveTowardsDirection(monster.direction, monsterPos[0], monsterPos[1]);
+                moveCSSObj(monster.cssObj, newPos[0], newPos[1]);
+                return true;
+            }
+        }
+
+        var upActor = probeADirection(Direction.UP, monsterPos[0], monsterPos[1]);
+        var downActor = probeADirection(Direction.DOWN, monsterPos[0], monsterPos[1]);
+        var leftActor = probeADirection(Direction.LEFT, monsterPos[0], monsterPos[1]);
+        var rightActor = probeADirection(Direction.RIGHT, monsterPos[0], monsterPos[1]);
+        var currentDirection = monster.direction;
+        var reverseDirection = getReverseDirection(currentDirection);
+
+        var directionCandidates = []
+        if (Direction.UP != reverseDirection && upActor != ActorType.CRATE)
+        {
+            directionCandidates.push(Direction.UP);
+        }
+        if (Direction.DOWN != reverseDirection && downActor != ActorType.CRATE)
+        {
+            directionCandidates.push(Direction.DOWN);
+        }
+        if (Direction.LEFT != reverseDirection && leftActor != ActorType.CRATE)
+        {
+            directionCandidates.push(Direction.LEFT);
+        }
+        if (Direction.RIGHT != reverseDirection && rightActor != ActorType.CRATE)
+        {
+            directionCandidates.push(Direction.RIGHT);
+        }
+
+        var newDirection = pickRandomDirection(directionCandidates);
+        monster.direction = newDirection;
+        var newPos = moveTowardsDirection(newDirection, monsterPos[0], monsterPos[1]);
+        moveCSSObj(monster.cssObj, newPos[0], newPos[1]);
+        return true;
+    }
+
+    function spawnNewMonsterAtEmptyPlace()
+    {
+        actorPos = extractPosition(players[0].cssObj);
+        for (var i = 0; i < (boardHeight * pieceHeight); i += pieceHeight)
+        {
+            for (var j = 0; j < (boardWidth * pieceWidth); j += pieceWidth)
+            {
+                if (actorTypeAtPos(j, i) == ActorType.EMPTY && Math.abs(j - actorPos[0]) >= pieceWidth * 2 && Math.abs(i - actorPos[1]) >= pieceHeight * 2)
+                {
+                    var actor = createActor(3, j, i, pieceHeight, pieceWidth);
+                    monsters.push(new Monster(actor, Direction.STILL));
+                    $(gameboard).append(actor);
+                    return;
+                }
+            }
+        }
+    }
+
+    function removeAMonster(monsterActor)
+    {
+        for (var i = 0; i < monsters.length; i++)
+        {
+            if (monsters[i] == monsterActor)
+            {
+                $(monsterActor.cssObj).remove();
+                monsters.splice(i, 1);
+                break;
+            }
+        }
+    }
+
+    function pickRandomDirection(directionList)
+    {
+        if (directionList.length === 0)
+        {
+            return Direction.STILL;
+        }
+        else if (directionList.length == 1)
+        {
+            return directionList[0];
+        }
+        else
+        {
+            var randomNum = Math.floor(Math.random() * (directionList.length));
+            //var randomNum = Math.floor(pseudoRandomAccumulator % (directionList.length));
+            pseudoRandomAccumulator++;
+            return directionList[randomNum];
+        }
+    }
+
+    function probeADirection(direction, posX, posY)
+    {
+        var pos = nextCellTowardsDirection(direction, posX, posY);
+        return actorTypeAtPos(pos[0], pos[1]);
+    }
+
+    function getReverseDirection(direction)
+    {
+        if (direction == Direction.STILL)
+        {
+            return direction;
+        }
+        else if (direction == Direction.LEFT)
+        {
+            return Direction.RIGHT;
+        }
+        else if (direction == Direction.RIGHT)
+        {
+            return Direction.LEFT;
+        }
+        else if (direction == Direction.UP)
+        {
+            return Direction.DOWN;
+        }
+        else // direction == Direction.DOWN
+        {
+            return Direction.UP;
+        }
+    }
+
+    function nextCellTowardsDirection(direction, posX, posY)
+    {
+        var returnPos = [posX, posY];
+        if (direction == Direction.UP)
+        {
+            returnPos[1] -= pieceHeight;
+        }
+        else if (direction == Direction.DOWN)
+        {
+            returnPos[1] += pieceHeight;
+        }
+        else if (direction == Direction.LEFT)
+        {
+            returnPos[0] -= pieceWidth;
+        }
+        else if (direction == Direction.RIGHT)
+        {
+            returnPos[0] += pieceWidth; 
+        }
+        return returnPos;
+    }
+
+    function moveTowardsDirection(direction, posX, posY)
+    {
+        var returnPos = [posX, posY];
+        if (direction == Direction.UP)
+        {
+            returnPos[1] -= movementGap;
+        }
+        else if (direction == Direction.DOWN)
+        {
+            returnPos[1] += movementGap;
+        }
+        else if (direction == Direction.LEFT)
+        {
+            returnPos[0] -= movementGap;
+        }
+        else if (direction == Direction.RIGHT)
+        {
+            returnPos[0] += movementGap; 
+        }
+        return returnPos;
+    }
+
+    function removeActorFromList(actor, list)
+    {
+        var index = -1;
+        for (var i = 0; i < list.length; i++)
+        {
+            if (list[i] == actor)
+            {
+                index = i;
+                break;
+            }
+        }
+
+        if (index != -1)
+        {
+            list.splice(index, 1);
+        }
+    }
+
+    function getActorByPos(posX, posY)
+    {
+        for (var i = 0; i < players.length; i++)
+        {
+            var pos = extractPosition(players[i].cssObj);
+            if (posX == pos[0] && posY == pos[1])
+            {
+                return players[i].cssObj;
+            }
+        }
+        for (var i = 0; i < crates.length; i++)
+        {
+            var pos = extractPosition(crates[i]);
+            if (posX == pos[0] && posY == pos[1])
+            {
+                return crates[i];
+            }
+        }
+        for (var i = 0; i < beans.length; i++)
+        {
+            var pos = extractPosition(beans[i]);
+            if (posX == pos[0] && posY == pos[1])
+            {
+                return beans[i];
+            }
+        }
+        for (var i = 0; i < megabeans.length; i++)
+        {
+            var pos = extractPosition(megabeans[i]);
+            if (posX == pos[0] && posY == pos[1])
+            {
+                return megabeans[i];
+            }
+        }
+        for (var i = 0; i < monsters.length; i++)
+        {
+            var pos = extractPosition(monsters[i].cssObj);
+            if (posX == pos[0] && posY == pos[1])
+            {
+                return monsters[i].cssObj;
+            }
+        }
+
+        return null;
+    }
+
+    function createActor(actorIndex, left, top, height, width)
+    {
+        var actor = "empty";
+        if (actorIndex == 0)
+        {
+            actor = "bean";
+        }
+        else if (actorIndex == 1)
+        {
+            actor = "crate";
+        }
+        else if (actorIndex == 2)
+        {
+            actor = "megabean";
+        }
+        else if (actorIndex == 3)
+        {
+            actor = "monster";
+        }
+        else if (actorIndex == 4)
+        {
+            actor = "player";
+        }
+        else if (actorIndex == 6)
+        {
+            actor = "ghostPlayer";
+        }
+        else
+        {
+            return null;
+        }
+
+        var newActor = $("<div class='" + actor + "'><div/>");
+        newActor.css("top", top + "px");
+        newActor.css("left", left + "px");
+        newActor.css("width", width + "px");
+        newActor.css("height", height + "px");
+        return newActor;
+    }
+
+    function spawnAnActor(actorIndex, left, top, height, width)
+    {
+        var actor = createActor(actorIndex, left, top, height, width);
+        if (actorIndex == 0)
+        {
+            beans.push(actor);
+        }
+        else if (actorIndex == 1)
+        {
+            crates.push(actor);
+        }
+        else if (actorIndex == 2)
+        {
+            megabeans.push(actor);
+        }
+        else if (actorIndex == 3)
+        {
+            monsters.push(new Monster(actor, Direction.STILL));
+        }
+        else if (actorIndex == 4)
+        {
+            players.push(new Player(actor, Direction.STILL));
+        }
+        else if (actorIndex == 6)
+        {
+            ghostPlayer = new Player(actor, Direction.STILL);
+        }
+
+        if (actor != null)
+        {
+            $(gameboard).append(actor);
+        }
+    }
+
+    function initializeBoard(fixedOnly)
+    {
+        for (var i = 0; i < boardHeight; i++)
+        {
+            for (var j = 0; j < boardWidth; j++)
+            {
+                var actorIndex = initBoard[i][j];
+                var actor = createActor(actorIndex, pieceWidth * j, pieceHeight * i, pieceHeight, pieceWidth);
+
+                if (actorIndex == 0)
+                {
+                    beans.push(actor);
+                }
+                else if (actorIndex == 1)
+                {
+                    crates.push(actor);
+                }
+                else if (actorIndex == 2)
+                {
+                    megabeans.push(actor);
+                }
+                else if (actorIndex == 3 && !fixedOnly)
+                {
+                    monsters.push(new Monster(actor, Direction.STILL));
+                }
+                else if (actorIndex == 4 && !fixedOnly)
+                {
+                    players.push(new Player(actor, Direction.STILL));
+                }
+
+                if (actor != null)
+                {
+                    $(gameboard).append(actor);
+                }
+            }
+        }
+    }
+
+    function extractPosition(actor)
+    {
+        var x = parseInt(actor.css("left").substring(0, actor.css("left").length - 2));
+        var y = parseInt(actor.css("top").substring(0, actor.css("top").length - 2));
+        var pair = [];
+        pair.push(x);
+        pair.push(y);
+        return pair;
+    }
+
+    function actorTypeAtPos(posX, posY)
+    {
+        for (var i = 0; i < players.length; i++)
+        {
+            var pos = extractPosition(players[i].cssObj);
+            if (posX == pos[0] && posY == pos[1])
+            {
+                return ActorType.PLAYER;
+            }
+        }
+        for (var i = 0; i < crates.length; i++)
+        {
+            var pos = extractPosition(crates[i]);
+            if (posX == pos[0] && posY == pos[1])
+            {
+                return ActorType.CRATE;
+            }
+        }
+        for (var i = 0; i < beans.length; i++)
+        {
+            var pos = extractPosition(beans[i]);
+            if (posX == pos[0] && posY == pos[1])
+            {
+                return ActorType.BEAN;
+            }
+        }
+        for (var i = 0; i < megabeans.length; i++)
+        {
+            var pos = extractPosition(megabeans[i]);
+            if (posX == pos[0] && posY == pos[1])
+            {
+                return ActorType.MEGABEAN;
+            }
+        }
+        for (var i = 0; i < monsters.length; i++)
+        {
+            var pos = extractPosition(monsters[i].cssObj);
+            if (posX == pos[0] && posY == pos[1])
+            {
+                return ActorType.MONSTER;
+            }
+        }
+
+        return ActorType.EMPTY;
+    }
+});
+
+</script>
+<style>
+.player {
+    background-color: yellow;
+    width: 50px;
+    height: 50px;
+    position: absolute;
+    left: 0px;
+    top: 0px;
+}
+.ghostPlayer {
+    background-color: white;
+    width: 50px;
+    height: 50px;
+    position: absolute;
+    left: 0px;
+    top: 0px;
+}
+.crate {
+    background-color: gray;
+    width: 50px;
+    height: 50px;
+    position: absolute;
+    left: 0px;
+    top: 0px;
+}
+.monster {
+    background-color: blue;
+    width: 50px;
+    height: 50px;
+    position: absolute;
+    left: 0px;
+    top: 0px;
+}
+.bean {
+    background-color: white;
+    width: 50px;
+    height: 50px;
+    position: absolute;
+    left: 0px;
+    top: 0px;
+}
+.megabean {
+    background-color: red;
+    width: 50px;
+    height: 50px;
+    position: absolute;
+    left: 0px;
+    top: 0px;
+}
+</style>
+</head>
+<body>
+</body>
+</html>
