@@ -12,7 +12,8 @@
 
 <script>
 // TODO: 1. add image.
-//       4. treats 5. refactor 6. push to git
+//       5. refactor
+
 // 0:bean, 1:crate, 2:megabean, 3:monster, 4:player, 5:empty, 6: ghostPlayer
 var Direction = {UP: 1, DOWN: 2, LEFT: 3, RIGHT: 4, STILL: 5};
 var ActorType = {BEAN: 1, CRATE: 2, MEGABEAN: 3, MONSTER: 4, PLAYER: 5, EMPTY: 6};
@@ -36,7 +37,7 @@ var isServer = false;
 
 var initBoard =
     [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-     [1,3,5,5,5,5,5,5,5,5,5,5,5,3,1],
+     [1,3,5,5,5,5,5,5,5,5,5,5,5,5,1],
      [1,5,1,5,1,5,1,5,1,1,5,1,1,5,1],
      [1,5,1,5,1,5,1,5,5,5,5,5,5,5,1],
      [1,5,5,5,5,5,5,5,1,1,5,1,1,5,1],
@@ -151,7 +152,7 @@ $(document).ready(function() {
                 var monsterPos = extractPosition(monsters[i].cssObj);
                 if (update)
                 {
-                    update = moveAMonster(monsters[i], playerPos[0], playerPos[1]);
+                    //update = moveAMonster(monsters[i], playerPos[0], playerPos[1]);
                 }
             }
         }
@@ -168,6 +169,7 @@ $(document).ready(function() {
         }
         else
         {
+            var playerPos = extractPosition(players[0].cssObj);
             if (playerPos[0] % pieceWidth != 0 || playerPos[1] % pieceHeight != 0)
             {
                 var nextStepPos = moveTowardsDirection(players[0].direction, playerPos[0], playerPos[1]);
@@ -189,11 +191,11 @@ $(document).ready(function() {
         // Upload player position and download ghostPlayer position
         if (isServer)
         {
-            sendAndGetMsg(prepareData(MsgType.SERVER), MsgType.SERVER);
+            sendAndGetMsg(MsgType.SERVER);
         }
         else
         {
-            sendAndGetMsg(prepareData(MsgType.CLIENT), MsgType.CLIENT);   
+            sendAndGetMsg(MsgType.CLIENT);   
         }
 
         if (update && prev != second)
@@ -232,21 +234,21 @@ $(document).ready(function() {
             monsters = [];
         }
 
-        sendAndGetMsg(prepareData(MsgType.PROBE), MsgType.PROBE);
-        setTimeout(function()
-        {
-            if (monsters.length > 0)
-            {
-                initializeBoard(true);
-            }
-            else
-            {
-                initializeBoard(false);   
-            }
-            started = true;
-            update = true;
-            prev = 0;
-        }, 2000);
+        sendAndGetMsg(MsgType.PROBE);
+        // setTimeout(function()
+        // {
+        //     if (monsters.length > 0)
+        //     {
+        //         initializeBoard(true);
+        //     }
+        //     else
+        //     {
+        //         initializeBoard(false);   
+        //     }
+        //     started = true;
+        //     update = true;
+        //     prev = 0;
+        // }, 1500);
     }
 
     function prepareData(msgType)
@@ -277,8 +279,9 @@ $(document).ready(function() {
         return dataToPass;
     }
 
-    function sendAndGetMsg(dataToPass, msgType)
+    function sendAndGetMsg(msgType)
     {
+        var dataToPass = prepareData(msgType);
         $.ajax({
             url:"https://codingthecrowd.com/counter.php",
             dataType: "jsonp",
@@ -309,6 +312,19 @@ $(document).ready(function() {
                         break;
                     }
                 }
+
+                if (players.length > 0)
+                {
+                    initializeBoard(true);
+                }
+                else
+                {
+                    initializeBoard(false);   
+                }
+                started = true;
+                update = true;
+                prev = 0;
+                console.log(isServer);
             }
             else // msgType == MsgType.SERVER or msgType == MsgType.CLIENT
             {
@@ -327,7 +343,6 @@ $(document).ready(function() {
                         aliveCount++;
                     }
                 }
-
                 posX = Math.floor(posX / aliveCount);
                 posY = Math.floor(posY / aliveCount);
                 if (ghostPlayer == null)
@@ -491,8 +506,8 @@ $(document).ready(function() {
         else
         {
             var randomNum = Math.floor(Math.random() * (directionList.length));
-            //var randomNum = Math.floor(pseudoRandomAccumulator % (directionList.length));
-            pseudoRandomAccumulator++;
+            // var randomNum = Math.floor(pseudoRandomAccumulator % (directionList.length));
+            // pseudoRandomAccumulator++;
             return directionList[randomNum];
         }
     }
@@ -716,8 +731,12 @@ $(document).ready(function() {
             for (var j = 0; j < boardWidth; j++)
             {
                 var actorIndex = initBoard[i][j];
-                var actor = createActor(actorIndex, pieceWidth * j, pieceHeight * i, pieceHeight, pieceWidth);
+                if ((actorIndex == 3 || actorIndex == 4) && fixedOnly)
+                {
+                    continue;
+                }
 
+                var actor = createActor(actorIndex, pieceWidth * j, pieceHeight * i, pieceHeight, pieceWidth);
                 if (actorIndex == 0)
                 {
                     beans.push(actor);
@@ -730,11 +749,11 @@ $(document).ready(function() {
                 {
                     megabeans.push(actor);
                 }
-                else if (actorIndex == 3 && !fixedOnly)
+                else if (actorIndex == 3)
                 {
                     monsters.push(new Monster(actor, Direction.STILL));
                 }
-                else if (actorIndex == 4 && !fixedOnly)
+                else if (actorIndex == 4)
                 {
                     players.push(new Player(actor, Direction.STILL));
                 }
@@ -813,6 +832,10 @@ $(document).ready(function() {
     position: absolute;
     left: 0px;
     top: 0px;
+    background-image: url("peccy.png");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 100%;
 }
 .ghostPlayer {
     background-color: white;
@@ -821,6 +844,9 @@ $(document).ready(function() {
     position: absolute;
     left: 0px;
     top: 0px;
+    background-image: url("http://codingthecrowd.com/aliens.gif");
+    background-repeat: no-repeat;
+    background-position: center;
 }
 .crate {
     background-color: gray;
