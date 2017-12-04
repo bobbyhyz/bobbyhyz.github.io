@@ -18,22 +18,27 @@
 var Direction = {UP: 1, DOWN: 2, LEFT: 3, RIGHT: 4, STILL: 5};
 var ActorType = {BEAN: 1, CRATE: 2, MEGABEAN: 3, MONSTER: 4, PLAYER: 5, EMPTY: 6};
 var MsgType = {PROBE: 1, SERVER: 2, CLIENT: 3};
-var pieceWidth = 60;
-var pieceHeight = 60;
+var pieceWidth = 40;
+var pieceHeight = 40;
 var boardWidth = 15;
 var boardHeight = 9;
 var bonus = 0.0;
+var tmpBonus = 0.0;
 var update = false;
 var started = false;
 var myKey = "runforrestrun";
-var movementGap = 3; // the amount of pixels to move every update
+var movementGap = 2; // the amount of pixels to move every update
 var updatePeriod = 50;
 var bufDuration = 10000; // in milliseconds
 var monsterSpawningCoolDown = 40; // in number of periods
 var increaseCounter = 0; // used by monster respawn
 var prev = 0;
+var prevTrace = [];
+var prevTraceStillCount = 0;
 var pseudoRandomAccumulator = 0;
+var prevTraceStillCountTreshold = 8;
 var isServer = false;
+var goThroughWall = true;
 
 var initBoard =
     [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
@@ -78,6 +83,7 @@ class Monster extends Actor
     constructor(cssObj, direction)
     {
         super(cssObj, direction);
+        this.trace = [];
     }
 }
 
@@ -143,17 +149,23 @@ $(document).ready(function() {
         //     spawnNewMonsterAtEmptyPlace();
         // }
 
-        if (isServer)
+        if (isServer) // server side
         {
             var playerPos = extractPosition(players[0].cssObj);
             // update positions of monsters
             for (var i = 0; i < monsters.length; i++)
             {
-                var monsterPos = extractPosition(monsters[i].cssObj);
                 if (update)
                 {
-                    //update = moveAMonster(monsters[i], playerPos[0], playerPos[1]);
+                    update = moveAMonster(monsters[i], playerPos[0], playerPos[1]);
                 }
+            }
+        }
+        else if (update) // client side
+        {
+            for (var i = 0; i < monsters.length; i++)
+            {
+                moveAClientMonster(monsters[i]);
             }
         }
 
@@ -170,7 +182,7 @@ $(document).ready(function() {
         else
         {
             var playerPos = extractPosition(players[0].cssObj);
-            if (playerPos[0] % pieceWidth != 0 || playerPos[1] % pieceHeight != 0)
+            if (!isAligned(playerPos[0], playerPos[1]))
             {
                 var nextStepPos = moveTowardsDirection(players[0].direction, playerPos[0], playerPos[1]);
                 moveCSSObj(players[0].cssObj, nextStepPos[0], nextStepPos[1]);
@@ -200,7 +212,7 @@ $(document).ready(function() {
 
         if (update && prev != second)
         {
-            bonus += 0.001;
+            tmpBonus += 0.001;
             prev = second;
             document.getElementById("bonus").innerHTML = "Your bonus is: " + bonus.toFixed(3);
         }
@@ -211,8 +223,96 @@ $(document).ready(function() {
 
     }, updatePeriod);
 
+    function isAligned(posX, posY)
+    {
+        return posX % pieceWidth == 0 && posY % pieceHeight == 0;
+    }
+
+    // round posX and posY to nearest top left cell
+    function alignTopLeft(posX, posY)
+    {
+        var indexX = Math.floor(posX / pieceWidth);
+        var indexY = Math.floor(posY / pieceHeight);
+        return [indexX * pieceWidth, indexY * pieceHeight];
+    }
+
+    // Given a position, find an empty cell nearby. (consider adjacent 2x2 only)
+    // hack. Bad practice
+    function findNeighborEmptyCell(posX, posY)
+    {
+        var indexX = Math.floor(posX / pieceWidth);
+        var indexY = Math.floor(posY / pieceHeight);
+        var actorAtFirst  = actorTypeAtPos(indexX * pieceWidth, indexY * pieceHeight);
+        var actorAtSecond = actorTypeAtPos((indexX + 1) * pieceWidth, indexY * pieceHeight);
+        var actorAtThird  = actorTypeAtPos((indexX + 1) * pieceWidth, (indexY + 1) * pieceHeight);
+        var actorAtFourth = actorTypeAtPos(indexX * pieceWidth, (indexY + 1) * pieceHeight);
+
+        if (isAligned(posX, posY))
+        {
+            return [posX, posY];
+        }
+        else if (posX % pieceWidth == 0) // vertically aligned
+        {
+            if (actorAtFourth != ActorType.CRATE && actorAtFirst != ActorType.CRATE)
+            {
+                return [posX, posY];
+            }
+            else
+            {
+                return [posX + pieceWidth, posY];
+            }
+            // else if (actorAtFirst == ActorType.EMPTY)
+            // {
+            //     return [posX, indexY * pieceHeight];
+            // }
+            // else if (actorAtFourth == ActorType.EMPTY)
+            // {
+            //     return [posX, (indexY + 1) * pieceHeight];
+            // }
+            // else
+            // {
+            //     return [posX, (indexY + 2) * pieceHeight];
+            // }
+        }
+        else if (posY % pieceHeight == 0) // horizontally aligned
+        {
+            if (actorAtFirst != ActorType.CRATE && actorAtSecond != ActorType.CRATE)
+            {
+                return [posX, posY];
+            }
+            else
+            {
+                return [posX, posY + pieceHeight];
+            }
+        }
+
+        
+        if (actorAtFirst != ActorType.CRATE && actorAtSecond != ActorType.CRATE)
+        {
+            return [posX, indexY * pieceHeight];
+        }
+        else if (actorAtSecond != ActorType.CRATE && actorAtThird != ActorType.CRATE)
+        {
+            return [(indexX + 1) * pieceWidth, posY];
+        }
+        else if (actorAtThird != ActorType.CRATE && actorAtFourth != ActorType.CRATE)
+        {
+            return [posX, (indexY + 1) * pieceHeight];
+        }
+        else if (actorAtFourth != ActorType.CRATE && actorAtFirst != ActorType.CRATE)
+        {
+            return [indexX * pieceWidth, posY];
+        }
+        else
+        {
+            // should never reach here.
+            return [posX, posY];
+        }
+    }
+
     function handleGameStart()
     {
+        tmpBonus = 0.0;
         bonus = 0.0;
         document.getElementById("bonus").innerHTML = "Your bonus is: " + bonus.toFixed(3);
 
@@ -235,20 +335,6 @@ $(document).ready(function() {
         }
 
         sendAndGetMsg(MsgType.PROBE);
-        // setTimeout(function()
-        // {
-        //     if (monsters.length > 0)
-        //     {
-        //         initializeBoard(true);
-        //     }
-        //     else
-        //     {
-        //         initializeBoard(false);   
-        //     }
-        //     started = true;
-        //     update = true;
-        //     prev = 0;
-        // }, 1500);
     }
 
     function prepareData(msgType)
@@ -259,12 +345,13 @@ $(document).ready(function() {
             dataToPass["isServer"] = false;
             dataToPass["isAlive"] = false;
         }
-        else
+        else // msgType == MsgType.SERVER or msgType == MsgType.CLIENT
         {
             dataToPass["isServer"] = isServer;
             dataToPass["isAlive"] = update;
             dataToPass["playerPosition"] = extractPosition(players[0].cssObj);
             dataToPass["monsterPositions"] = [];
+            dataToPass["bonus"] = tmpBonus;
             //dataToPass["monsterDirections"] = [];
             if (msgType == MsgType.SERVER)
             {
@@ -299,13 +386,15 @@ $(document).ready(function() {
                     var datum = JSON.parse(jsonDatum);
                     if (datum["isServer"] && datum["isAlive"])
                     {
-                        var playerPos = datum["playerPosition"];
-                        spawnAnActor(4, playerPos[0], playerPos[1], pieceHeight, pieceWidth);
+                        // var playerPos = datum["playerPosition"];
+                        // spawnAnActor(4, playerPos[0], playerPos[1], pieceHeight, pieceWidth);
+                        spawnAnActor(4, 7 * pieceWidth, 7 * pieceHeight, pieceHeight, pieceWidth);
                         monsterPositions = datum["monsterPositions"];
                         //monsterDirections = datum["monsterDirections"];
                         for (var j = 0; j < monsterPositions.length; j++)
                         {
-                            spawnAnActor(3, monsterPositions[j][0], monsterPositions[j][1], pieceHeight, pieceWidth);
+                            var newMonsterPos = alignTopLeft(monsterPositions[j][0], monsterPositions[j][1]);
+                            spawnAnActor(3, newMonsterPos[0], newMonsterPos[1], pieceHeight, pieceWidth);
                             //monsters[monsters.length - 1].direction = monsterDirections[j];
                         }
                         isServer = false;
@@ -324,7 +413,6 @@ $(document).ready(function() {
                 started = true;
                 update = true;
                 prev = 0;
-                console.log(isServer);
             }
             else // msgType == MsgType.SERVER or msgType == MsgType.CLIENT
             {
@@ -332,6 +420,7 @@ $(document).ready(function() {
                 var posX = 0;
                 var posY = 0;
                 var aliveCount = 0;
+                var tmpBonusCount = 0.0;
                 for (var i = 0; i < tmp.length; i++)
                 {
                     var jsonDatum = tmp[i]["data"];
@@ -340,11 +429,24 @@ $(document).ready(function() {
                     {
                         posX += datum["playerPosition"][0];
                         posY += datum["playerPosition"][1];
+                        tmpBonusCount += datum["bonus"];
                         aliveCount++;
                     }
                 }
-                posX = Math.floor(posX / aliveCount);
-                posY = Math.floor(posY / aliveCount);
+
+                posX = Math.round(posX / aliveCount);
+                posY = Math.round(posY / aliveCount);
+                console.log(tmpBonusCount);
+                console.log(aliveCount);
+                bonus = tmpBonusCount / aliveCount;
+
+                if (!goThroughWall)
+                {
+                    var realPos = findNeighborEmptyCell(posX, posY);
+                    posX = realPos[0];
+                    posY = realPos[1];
+                }
+
                 if (ghostPlayer == null)
                 {
                     spawnAnActor(6, posX, posY, pieceHeight, pieceWidth);
@@ -372,7 +474,9 @@ $(document).ready(function() {
                                 var serverMonsters = datum["monsterPositions"];
                                 for (var j = 0; j < serverMonsters.length; j++)
                                 {
-                                    moveCSSObj(monsters[j].cssObj, serverMonsters[j][0], serverMonsters[j][1]);
+                                    monsters[j].trace.push(alignTopLeft(serverMonsters[j][0], serverMonsters[j][1]));
+                                    //monsters[j].trace.push([serverMonsters[j][0], serverMonsters[j][1]]);
+                                    //moveCSSObj(monsters[j].cssObj, serverMonsters[j][0], serverMonsters[j][1]);
                                 }
                             }
                         }
@@ -395,13 +499,165 @@ $(document).ready(function() {
 
     function collision(posX1, posY1, posX2, posY2)
     {
-        return ((Math.abs(posX1 - posX2) < 0.7 * pieceWidth) && (Math.abs(posY1 - posY2) < 0.7 * pieceHeight));
+        return false;
+        //return ((Math.abs(posX1 - posX2) < 0.7 * pieceWidth) && (Math.abs(posY1 - posY2) < 0.7 * pieceHeight));
+    }
+
+    function getNextDirection(monsterPos, targetPos)
+    {
+        var potentialDirs = [];
+        var randomNum = Math.random();
+        if (randomNum > 0.5)
+        {
+            if (monsterPos[0] - targetPos[0] > 0)
+            {
+                potentialDirs.push(Direction.LEFT);
+            }
+            else if (monsterPos[0] - targetPos[0] < 0)
+            {
+                potentialDirs.push(Direction.RIGHT);
+            }
+            if (monsterPos[1] - targetPos[1] > 0)
+            {
+                potentialDirs.push(Direction.UP);
+            }
+            else if (monsterPos[1] - targetPos[1] < 0)
+            {
+                potentialDirs.push(Direction.DOWN);
+            }
+        }
+        else
+        {
+            if (monsterPos[1] - targetPos[1] > 0)
+            {
+                potentialDirs.push(Direction.UP);
+            }
+            else if (monsterPos[1] - targetPos[1] < 0)
+            {
+                potentialDirs.push(Direction.DOWN);
+            }
+            if (monsterPos[0] - targetPos[0] > 0)
+            {
+                potentialDirs.push(Direction.LEFT);
+            }
+            else if (monsterPos[0] - targetPos[0] < 0)
+            {
+                potentialDirs.push(Direction.RIGHT);
+            }
+        }
+        
+        if (monsterPos[0] - targetPos[0] > 0)
+        {
+            potentialDirs.push(Direction.LEFT);
+        }
+        else if (monsterPos[0] - targetPos[0] < 0)
+        {
+            potentialDirs.push(Direction.RIGHT);
+        }
+        if (monsterPos[1] - targetPos[1] > 0)
+        {
+            potentialDirs.push(Direction.UP);
+        }
+        else if (monsterPos[1] - targetPos[1] < 0)
+        {
+            potentialDirs.push(Direction.DOWN);
+        }
+
+        for (var i = 0; i < potentialDirs.length; i++)
+        {
+            var curDir = potentialDirs[i];
+            if (probeADirection(curDir, monsterPos[0], monsterPos[1]) != ActorType.CRATE)
+            {
+                return curDir;
+            }
+        }
+
+        while (true)
+        {
+            var randomNum1 = Math.floor(Math.random() * 3 + 1);
+            if (!potentialDirs.includes(randomNum1) && probeADirection(randomNum1, monsterPos[0], monsterPos[1]) != ActorType.CRATE)
+            {
+                return randomNum1;
+            }
+        }
+        // if (!potentialDirs.includes(Direction.UP) && probeADirection(Direction.UP, monsterPos[0], monsterPos[1]) != ActorType.CRATE)
+        // {
+        //     return Direction.UP;
+        // }
+        // else if (!potentialDirs.includes(Direction.DOWN) && probeADirection(Direction.DOWN, monsterPos[0], monsterPos[1]) != ActorType.CRATE)
+        // {
+        //     return Direction.DOWN;
+        // }
+        // else if (!potentialDirs.includes(Direction.LEFT) && probeADirection(Direction.LEFT, monsterPos[0], monsterPos[1]) != ActorType.CRATE)
+        // {
+        //     return Direction.LEFT;
+        // }
+        // else
+        // {
+        //     return Direction.RIGHT;
+        // }
+    }
+
+    function moveAClientMonster(monster)
+    {
+        var monsterPos = extractPosition(monster.cssObj);
+        if (monster.trace.length == 0)
+        {
+            return;
+        }
+        while (monster.trace.length != 0 && monsterPos[0] == monster.trace[0][0] && monsterPos[1] == monster.trace[0][1])
+        {
+            monster.trace.splice(0, 1);
+        }
+        if (monster.trace.length == 0)
+        {
+            return;
+        }
+
+        if (!isAligned(monsterPos[0], monsterPos[1]))
+        {
+            //console.log(monster.direction);
+            //var nextStep = moveTowardsDirection(monster.direction, monsterPos[0], monsterPos[1]);
+
+            // var targetPos = monster.trace[0];
+            // var nextDir = getNextDirection(monsterPos, targetPos);
+            // if (nextDir == Direction.STILL)
+            // {
+            //     if (monster.direction != Direction.STILL)
+            //     {
+            //         nextDir = monster.direction;
+            //     }
+            // }
+            // if (nextDir != Direction.STILL)
+            // {
+            //     monster.direction = nextDir;
+            // }
+            var nextStep = moveTowardsDirection(monster.direction, monsterPos[0], monsterPos[1]);
+            moveCSSObj(monster.cssObj, nextStep[0], nextStep[1]);
+            return;
+        }
+
+        var targetPos = monster.trace[0];
+        if (targetPos[0] == prevTrace[0] && targetPos[1] == prevTrace[1])
+        {
+            prevTraceStillCount++;
+        }
+        if (prevTraceStillCount > prevTraceStillCountTreshold)
+        {
+            prevTraceStillCount = 0;
+            monster.trace.splice(0, 1);
+            return;
+        }
+        var nextDir = getNextDirection(monsterPos, targetPos);
+        monster.direction = nextDir;
+        var nextStep = moveTowardsDirection(nextDir, monsterPos[0], monsterPos[1]);
+        moveCSSObj(monster.cssObj, nextStep[0], nextStep[1]);
     }
 
     function moveAMonster(monster, playerX, playerY)
     {
         var monsterPos = extractPosition(monster.cssObj);
-        if (monsterPos[0] % pieceWidth != 0 || monsterPos[1] % pieceHeight != 0)
+        if (!isAligned(monsterPos[0], monsterPos[1]))
         {
             if (collision(monsterPos[0], monsterPos[1], playerX, playerY))
             {
@@ -412,7 +668,7 @@ $(document).ready(function() {
                 }
                 else
                 {
-                    bonus += 0.002;
+                    tmpBonus += 0.002;
                     removeAMonster(monster);
                     return true;
                 }
@@ -844,7 +1100,7 @@ $(document).ready(function() {
     position: absolute;
     left: 0px;
     top: 0px;
-    background-image: url("http://codingthecrowd.com/aliens.gif");
+    background-image: url("https://codingthecrowd.com/aliens.gif");
     background-repeat: no-repeat;
     background-position: center;
 }
