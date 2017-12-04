@@ -130,6 +130,7 @@ $(document).ready(function() {
         }
         else if (started && !update)
         {
+            sendAndGetMsg(MsgType.SERVER);
             document.getElementById("bonus").innerHTML = "Game ends. Your bonus is: " + bonus.toFixed(3);
             return;
         }
