@@ -499,8 +499,8 @@ $(document).ready(function() {
 
     function collision(posX1, posY1, posX2, posY2)
     {
-        return false;
-        //return ((Math.abs(posX1 - posX2) < 0.7 * pieceWidth) && (Math.abs(posY1 - posY2) < 0.7 * pieceHeight));
+        //return false;
+        return ((Math.abs(posX1 - posX2) < 0.7 * pieceWidth) && (Math.abs(posY1 - posY2) < 0.7 * pieceHeight));
     }
 
     function getNextDirection(monsterPos, targetPos)
