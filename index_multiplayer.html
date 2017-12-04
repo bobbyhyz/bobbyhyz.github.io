@@ -420,6 +420,10 @@ $(document).ready(function() {
             }
             else // msgType == MsgType.SERVER or msgType == MsgType.CLIENT
             {
+                if (!update)
+                {
+                    return;
+                }
                 // update ghostPlayer
                 var posX = 0;
                 var posY = 0;
